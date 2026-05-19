@@ -25,6 +25,7 @@ export default async function HomePage({ searchParams }: PageProps) {
   const scope = (params.scope as SearchScope) || "posts";
   const flair = params.flair ?? "";
   const page = params.page ? Number(params.page) : 1;
+  const feedKey = `${sort}|${q}|${scope}|${flair}`;
 
   const [meta, posts, flairsResult] = await Promise.all([
     fetchMeta(),
@@ -48,7 +49,9 @@ export default async function HomePage({ searchParams }: PageProps) {
             <Suspense>
               <SearchScopeToggle />
             </Suspense>
-            <FeedClient initial={posts} />
+            <Suspense fallback={<div className="h-32 bg-reddit-card rounded animate-pulse" />}>
+              <FeedClient key={feedKey} initial={posts} />
+            </Suspense>
           </div>
           <aside className="hidden lg:block">
             <SubredditSidebar meta={meta} />

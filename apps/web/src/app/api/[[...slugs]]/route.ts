@@ -1,5 +1,7 @@
 import { app } from "@/server/elysia";
 
+export const dynamic = "force-dynamic";
+
 export const GET = app.fetch;
 export const POST = app.fetch;
 export const PUT = app.fetch;

@@ -30,50 +30,74 @@ export function FeedClient({
   const flair = searchParams.get("flair") ?? "";
 
   const [posts, setPosts] = useState<PostSummary[]>(initial.posts);
-  const [page, setPage] = useState(initial.page);
   const [total, setTotal] = useState(initial.total);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const pageRef = useRef(initial.page);
+  const postsRef = useRef(posts);
+  const totalRef = useRef(total);
   const loadingRef = useRef(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
-  const filterKey = `${sort}|${q}|${scope}|${flair}`;
+  postsRef.current = posts;
+  totalRef.current = total;
 
-  useEffect(() => {
-    setPosts(initial.posts);
-    setPage(initial.page);
-    setTotal(initial.total);
-    loadingRef.current = false;
-    setLoading(false);
-  }, [initial, filterKey]);
+  const filterKey = `${sort}|${q}|${scope}|${flair}`;
 
   const hasMore = posts.length < total;
 
   const loadMore = useCallback(async () => {
-    if (loadingRef.current || posts.length >= total) return;
+    if (loadingRef.current || postsRef.current.length >= totalRef.current) {
+      return;
+    }
+
     loadingRef.current = true;
     setLoading(true);
+    setError(null);
+
+    const nextPage = pageRef.current + 1;
+
     try {
       const sp = new URLSearchParams();
-      sp.set("page", String(page + 1));
+      sp.set("page", String(nextPage));
       sp.set("limit", "25");
       sp.set("sort", sort);
       if (q) sp.set("q", q);
       if (scope) sp.set("scope", scope);
       if (flair) sp.set("flair", flair);
-      const res = await fetch(`/api/posts?${sp}`);
+
+      const res = await fetch(`/api/posts?${sp}`, { cache: "no-store" });
+      if (!res.ok) {
+        throw new Error(`Failed to load posts (${res.status})`);
+      }
+
       const data: PostsListResponse = await res.json();
+      if (!Array.isArray(data.posts)) {
+        throw new Error("Invalid response from server");
+      }
+
+      pageRef.current = data.page;
+      totalRef.current = data.total;
+      setTotal(data.total);
       setPosts((prev) => {
         const ids = new Set(prev.map((p) => p.id));
         const next = data.posts.filter((p) => !ids.has(p.id));
+        if (next.length === 0 && data.posts.length > 0) {
+          setError("Received duplicate posts; try again.");
+        }
         return [...prev, ...next];
       });
-      setPage(data.page);
-      setTotal(data.total);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load more posts");
     } finally {
       loadingRef.current = false;
       setLoading(false);
     }
-  }, [page, sort, q, scope, flair, posts.length, total]);
+  }, [sort, q, scope, flair]);
+
+  const loadMoreRef = useRef(loadMore);
+  loadMoreRef.current = loadMore;
 
   useEffect(() => {
     const el = sentinelRef.current;
@@ -82,7 +106,7 @@ export function FeedClient({
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0]?.isIntersecting) {
-          void loadMore();
+          void loadMoreRef.current();
         }
       },
       { rootMargin: "400px" },
@@ -90,7 +114,7 @@ export function FeedClient({
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, [loadMore, hasMore, filterKey]);
+  }, [hasMore, filterKey]);
 
   const emptyMessage =
     q || flair
@@ -115,6 +139,19 @@ export function FeedClient({
       )}
 
       {loading && <LoadingSpinner />}
+
+      {error && (
+        <div className="text-center py-4 space-y-2">
+          <p className="text-sm text-reddit-orange">{error}</p>
+          <button
+            type="button"
+            onClick={() => void loadMore()}
+            className="text-sm text-reddit-blue hover:underline"
+          >
+            Try again
+          </button>
+        </div>
+      )}
 
       {hasMore && <div ref={sentinelRef} className="h-4" aria-hidden />}
     </div>
