@@ -57,6 +57,16 @@ export interface ArchiveMeta {
   comment_count: number;
 }
 
+/** `data/archive/meta.json` — posts live in chunk files. */
+export interface ArchiveManifest extends ArchiveMeta {
+  chunk_count: number;
+  chunks: { file: string; post_count: number; bytes: number }[];
+}
+
+export interface ArchiveChunk {
+  posts: Post[];
+}
+
 export interface Archive {
   subreddit: string;
   generated: string;

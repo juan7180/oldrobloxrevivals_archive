@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Convert Pushshift-style JSONL dumps into data/archive.json."""
+"""Convert Pushshift-style JSONL dumps into chunked data/archive/."""
 
 from __future__ import annotations
 
@@ -12,8 +12,12 @@ ROOT = Path(__file__).resolve().parent.parent
 SOURCE_DIR = ROOT / "data" / "source"
 POSTS_FILE = SOURCE_DIR / "r_oldrobloxrevivals_posts.jsonl"
 COMMENTS_FILE = SOURCE_DIR / "r_oldrobloxrevivals_comments.jsonl"
-OUT_FILE = ROOT / "data" / "archive.json"
+ARCHIVE_DIR = ROOT / "data" / "archive"
+CHUNKS_DIR = ARCHIVE_DIR / "chunks"
+META_FILE = ARCHIVE_DIR / "meta.json"
+LEGACY_OUT = ROOT / "data" / "archive.json"
 MANIFEST_FILE = ROOT / "media" / "manifest.json"
+MAX_CHUNK_BYTES = 8 * 1024 * 1024
 
 
 def load_jsonl(path: Path):
@@ -150,23 +154,69 @@ def main():
         flat = comments_by_post.get(post["id"], [])
         archive_posts.append({**post, "comments": build_comment_tree(flat)})
 
-    archive = {
+    meta = {
         "subreddit": "oldrobloxrevivals",
         "generated": datetime.now(tz=timezone.utc).isoformat(),
         "post_count": len(archive_posts),
         "comment_count": sum(len(comments_by_post[pid]) for pid in comments_by_post),
-        "posts": archive_posts,
     }
 
-    OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
-    print(f"Writing {OUT_FILE}...")
-    with OUT_FILE.open("w", encoding="utf-8") as f:
-        json.dump(archive, f, ensure_ascii=False, separators=(",", ":"))
+    print(f"Writing chunks to {CHUNKS_DIR} (max {MAX_CHUNK_BYTES // (1024 * 1024)} MB each)...")
+    chunk_manifest = write_chunks(archive_posts)
 
-    size_mb = OUT_FILE.stat().st_size / (1024 * 1024)
-    print(f"Done: {len(archive_posts)} posts, {archive['comment_count']} comments")
-    print(f"Archive: {OUT_FILE} ({size_mb:.1f} MB)")
+    ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
+    manifest = {**meta, "chunk_count": len(chunk_manifest), "chunks": chunk_manifest}
+    META_FILE.write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+    total_bytes = sum(c["bytes"] for c in chunk_manifest)
+    print(f"Done: {meta['post_count']} posts, {meta['comment_count']} comments")
+    print(f"Archive: {ARCHIVE_DIR} ({len(chunk_manifest)} chunks, {total_bytes / (1024 * 1024):.1f} MB)")
     print("Run: bun run dev")
+
+
+def write_chunks(posts: list[dict]) -> list[dict]:
+    CHUNKS_DIR.mkdir(parents=True, exist_ok=True)
+    for old in CHUNKS_DIR.glob("*.json"):
+        old.unlink()
+
+    chunk_posts: list[dict] = []
+    chunk_index = 0
+    manifest: list[dict] = []
+
+    def flush() -> None:
+        nonlocal chunk_index, chunk_posts
+        if not chunk_posts:
+            return
+        name = f"{chunk_index:04d}.json"
+        path = CHUNKS_DIR / name
+        payload = json.dumps({"posts": chunk_posts}, ensure_ascii=False, separators=(",", ":"))
+        path.write_text(payload, encoding="utf-8")
+        manifest.append(
+            {"file": name, "post_count": len(chunk_posts), "bytes": len(payload.encode("utf-8"))}
+        )
+        chunk_index += 1
+        chunk_posts = []
+
+    wrapper_overhead = len('{"posts":[]}')  # brackets + key
+    running_bytes = wrapper_overhead
+
+    for post in posts:
+        post_bytes = len(
+            json.dumps(post, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        )
+        sep = 1 if chunk_posts else 0
+        if running_bytes + sep + post_bytes > MAX_CHUNK_BYTES and chunk_posts:
+            flush()
+            running_bytes = wrapper_overhead
+            sep = 0
+        chunk_posts.append(post)
+        running_bytes += sep + post_bytes
+
+    flush()
+    return manifest
 
 
 if __name__ == "__main__":

@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 /** Repo root (monorepo root when cwd is apps/web). */
@@ -13,8 +14,17 @@ function parseOrigins(value: string | undefined): string[] {
     .filter(Boolean);
 }
 
+function defaultArchiveDir(): string {
+  const dir = join(getRepoRoot(), "data/archive");
+  if (existsSync(join(dir, "meta.json"))) return dir;
+  return getRepoRoot();
+}
+
 export const env = {
   corsOrigins: parseOrigins(process.env.CORS_ORIGINS),
+  /** Directory with meta.json + chunks/, or repo root if using legacy archive.json */
+  archiveDir: process.env.ARCHIVE_DIR ?? defaultArchiveDir(),
+  /** Legacy single-file archive (used when meta.json is absent) */
   archivePath:
     process.env.ARCHIVE_PATH ?? join(getRepoRoot(), "data/archive.json"),
   mediaRoot: process.env.MEDIA_ROOT ?? join(getRepoRoot(), "media"),

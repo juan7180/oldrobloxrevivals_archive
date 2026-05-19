@@ -5,4 +5,12 @@ dist/
 .DS_Store
 .env
 .env.local
+
+# Built monolith (use chunked data/archive/ instead)
+data/archive.json
+
+# Raw Pushshift dumps — too large for GitHub (rebuild with bun run build:archive)
+data/source/
+
+# Downloaded images (~700 MB) — optional local asset
 /media

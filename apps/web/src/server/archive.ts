@@ -1,7 +1,10 @@
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
+import { join } from "node:path";
 import type {
   Archive,
+  ArchiveChunk,
+  ArchiveManifest,
   Comment,
   Post,
   PostSummary,
@@ -57,19 +60,59 @@ function toSummary(post: Post): PostSummary {
   };
 }
 
+async function loadChunkedArchive(): Promise<Archive> {
+  const metaPath = join(env.archiveDir, "meta.json");
+  if (!existsSync(metaPath)) {
+    throw new Error(
+      `Archive not found at ${env.archiveDir}. Run: bun run build:archive`,
+    );
+  }
+
+  const manifest = JSON.parse(await readFile(metaPath, "utf-8")) as ArchiveManifest;
+  const chunksDir = join(env.archiveDir, "chunks");
+  const files = manifest.chunks?.length
+    ? manifest.chunks.map((c) => c.file)
+    : (await readdir(chunksDir))
+        .filter((f) => f.endsWith(".json"))
+        .sort();
+
+  const chunks = await Promise.all(
+    files.map(async (file) => {
+      const raw = await readFile(join(chunksDir, file), "utf-8");
+      return JSON.parse(raw) as ArchiveChunk;
+    }),
+  );
+  const posts = chunks.flatMap((c) => c.posts);
+
+  return {
+    subreddit: manifest.subreddit,
+    generated: manifest.generated,
+    post_count: manifest.post_count,
+    comment_count: manifest.comment_count,
+    posts,
+  };
+}
+
+async function loadLegacyArchive(): Promise<Archive> {
+  if (!existsSync(env.archivePath)) {
+    throw new Error(
+      `Archive not found. Run: bun run build:archive (chunked: data/archive/, legacy: data/archive.json)`,
+    );
+  }
+  const raw = await readFile(env.archivePath, "utf-8");
+  return JSON.parse(raw) as Archive;
+}
+
 export async function loadArchive(): Promise<Archive> {
   if (archive) return archive;
   if (loadPromise) return loadPromise;
 
   loadPromise = (async () => {
-    const path = env.archivePath;
-    if (!existsSync(path)) {
-      throw new Error(
-        `Archive not found at ${path}. Run: bun run build:archive`,
-      );
-    }
-    const raw = await readFile(path, "utf-8");
-    const data = JSON.parse(raw) as Archive;
+    const metaPath = join(env.archiveDir, "meta.json");
+    const data = existsSync(metaPath)
+      ? await loadChunkedArchive()
+      : await loadLegacyArchive();
+
     archive = data;
     postById.clear();
     for (const post of archive.posts) {
