@@ -6,13 +6,19 @@ import type {
   SearchScope,
   SortOption,
 } from "@redditviewer/shared";
+import { loadArchiveFromDisk } from "@redditviewer/shared/loadArchive";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 const ROOT = join(import.meta.dir, "../../..");
-const ARCHIVE_PATH = join(ROOT, "data/archive.json");
+const ARCHIVE_DIR =
+  process.env.ARCHIVE_DIR ?? join(ROOT, "data/archive");
+const ARCHIVE_PATH =
+  process.env.ARCHIVE_PATH ?? join(ROOT, "data/archive.json");
 
 let archive: Archive | null = null;
 const postById = new Map<string, Post>();
+let loadPromise: Promise<Archive> | null = null;
 
 export function countComments(nodes: Comment[]): number {
   return nodes.reduce((n, c) => n + 1 + countComments(c.replies || []), 0);
@@ -59,21 +65,26 @@ function toSummary(post: Post): PostSummary {
 
 export async function loadArchive(): Promise<Archive> {
   if (archive) return archive;
+  if (loadPromise) return loadPromise;
 
-  const file = Bun.file(ARCHIVE_PATH);
-  if (!(await file.exists())) {
-    throw new Error(
-      `Archive not found at ${ARCHIVE_PATH}. Run: bun run build:archive`,
-    );
-  }
-  const data = await file.json();
-  archive = data as Archive;
+  loadPromise = (async () => {
+    const archiveDir = existsSync(join(ARCHIVE_DIR, "meta.json"))
+      ? ARCHIVE_DIR
+      : ROOT;
+    const data = await loadArchiveFromDisk({
+      archiveDir,
+      archivePath: ARCHIVE_PATH,
+    });
 
-  for (const post of archive.posts) {
-    postById.set(post.id, post);
-  }
+    archive = data;
+    postById.clear();
+    for (const post of archive.posts) {
+      postById.set(post.id, post);
+    }
+    return archive;
+  })();
 
-  return archive;
+  return loadPromise;
 }
 
 export function getMeta() {
@@ -164,5 +175,5 @@ export function queryPosts(options: {
 }
 
 export function getMediaRoot(): string {
-  return join(ROOT, "media");
+  return process.env.MEDIA_ROOT ?? join(ROOT, "media");
 }
