@@ -1,0 +1,16 @@
+{
+  "name": "@redditviewer/api",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target bun"
+  },
+  "dependencies": {
+    "@redditviewer/shared": "workspace:*",
+    "@elysiajs/cors": "^1.2.0",
+    "@elysiajs/static": "^1.2.0",
+    "elysia": "^1.2.25"
+  }
+}

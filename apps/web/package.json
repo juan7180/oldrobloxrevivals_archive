@@ -1,0 +1,29 @@
+{
+  "name": "@redditviewer/web",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "dev:clean": "rm -rf .next && next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@elysiajs/cors": "^1.2.0",
+    "@redditviewer/shared": "workspace:*",
+    "elysia": "^1.2.25",
+    "next": "^15.3.2",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.7",
+    "@types/node": "^22.15.21",
+    "@types/react": "^19.1.4",
+    "@types/react-dom": "^19.1.5",
+    "tailwindcss": "^4.1.7",
+    "typescript": "^5.8.3"
+  }
+}

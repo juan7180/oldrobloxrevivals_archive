@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+@theme {
+  --color-reddit-orange: #ff4500;
+  --color-reddit-blue: #0079d3;
+  --color-reddit-bg: #0b1416;
+  --color-reddit-card: #1a1a1b;
+  --color-reddit-border: #343536;
+  --color-reddit-muted: #818384;
+  --color-reddit-text: #d7dadc;
+  --color-reddit-hover: #272729;
+  --color-reddit-upvote: #ff4500;
+  --color-reddit-downvote: #7193ff;
+  --color-reddit-flair-bg: #272729;
+  --color-reddit-flair-text: #d7dadc;
+}
+
+body {
+  background: var(--color-reddit-bg);
+  color: var(--color-reddit-text);
+}
+
+.markdown-body > *:first-child {
+  margin-top: 0;
+}
+
+.markdown-body > *:last-child {
+  margin-bottom: 0;
+}
+
+.comment-replies > .comment-tree:last-child > .flex {
+  padding-bottom: 0.25rem;
+}

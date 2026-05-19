@@ -1,0 +1,10 @@
+#!/bin/bash
+cd "$(dirname "$0")/.."
+echo "============================================"
+echo " Download images from Reddit archive JSONL"
+echo "============================================"
+echo ""
+echo "Saves to media/. Stop with Ctrl+C and re-run to resume."
+echo ""
+read -p "Press Enter to continue..."
+python3 scripts/download_media.py "$@"

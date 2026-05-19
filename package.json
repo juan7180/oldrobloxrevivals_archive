@@ -1,0 +1,16 @@
+{
+  "name": "redditviewer",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "build:archive": "python3 scripts/build.py",
+    "download:media": "python3 scripts/download_media.py",
+    "dev": "bun run --filter @redditviewer/web dev",
+    "dev:clean": "rm -rf apps/web/.next && bun run dev",
+    "build": "bun run --filter @redditviewer/web build",
+    "start": "bun run --filter @redditviewer/web start"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
