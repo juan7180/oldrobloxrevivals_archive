@@ -36,8 +36,15 @@ export function SubredditSidebar({ meta }: { meta: ArchiveMeta }) {
 
       <SubredditRules />
 
-      <div className="bg-reddit-card border border-reddit-border rounded-md p-4 text-xs text-reddit-muted leading-relaxed">
-        <p>
+      <div className="bg-reddit-card border border-reddit-border rounded-md p-4 text-xs text-reddit-muted leading-relaxed space-y-3">
+        <div>
+          <p className="font-bold text-reddit-text text-sm mb-1">Credits</p>
+          <p>
+            Original archiver:{" "}
+            <span className="text-reddit-text font-medium">u/sogwod</span>
+          </p>
+        </div>
+        <p className="pt-3 border-t border-reddit-border">
           This is a read-only historical snapshot. Voting, posting, and joining
           are disabled.
         </p>
