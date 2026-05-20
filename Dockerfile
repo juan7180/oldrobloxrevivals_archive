@@ -1,22 +1,16 @@
 # syntax=docker/dockerfile:1
 
-FROM oven/bun:1.3-alpine AS deps
+FROM oven/bun:1.3-alpine AS builder
 WORKDIR /app
+
+RUN apk add --no-cache libc6-compat
 
 COPY package.json bun.lock ./
 COPY apps/web/package.json ./apps/web/
 COPY apps/api/package.json ./apps/api/
 COPY packages/shared/package.json ./packages/shared/
+RUN bun install --frozen-lockfile
 
-RUN apk add --no-cache libc6-compat \
-  && bun install --frozen-lockfile
-
-FROM node:22-alpine AS builder
-WORKDIR /app
-
-RUN apk add --no-cache libc6-compat
-
-COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 ARG NEXT_PUBLIC_APP_URL
@@ -26,7 +20,7 @@ ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
 ENV CORS_ORIGINS=${CORS_ORIGINS}
 
 WORKDIR /app/apps/web
-RUN npm run build
+RUN bunx next build
 
 FROM node:22-alpine AS runner
 WORKDIR /app
