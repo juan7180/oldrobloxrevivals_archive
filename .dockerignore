@@ -12,7 +12,8 @@ media
 data/source
 data/archive.json
 
-apps/api
+apps/api/src
+
 scripts
 start_viewer.sh
 viewer
