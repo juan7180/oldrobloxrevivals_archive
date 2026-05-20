@@ -5,7 +5,7 @@
   "scripts": {
     "build:archive": "python3 scripts/build.py",
     "verify:archive": "python3 scripts/verify_archive.py",
-    "download:media": "python3 scripts/download_media.py",
+    "download:media": "bun run scripts/download-media.ts",
     "dev": "bun run --filter @redditviewer/web dev",
     "dev:clean": "rm -rf apps/web/.next && bun run dev",
     "build": "bun run --filter @redditviewer/web build",

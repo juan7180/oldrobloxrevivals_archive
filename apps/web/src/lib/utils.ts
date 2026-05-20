@@ -41,7 +41,4 @@ export function isImageUrl(url: string): boolean {
   return /\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(url || "");
 }
 
-export function mediaSrc(localImage?: string): string | null {
-  if (!localImage) return null;
-  return `/media/${localImage.replace(/^media\//, "")}`;
-}
+export { mediaSrc, resolveMediaUrl } from "./media";

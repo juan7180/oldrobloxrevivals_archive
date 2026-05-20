@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { fetchMeta, fetchPost } from "@/lib/api";
 import { isImageUrl, mediaSrc } from "@/lib/utils";
+import { fileForPost } from "@/server/media/manifest";
 import { VoteColumn } from "@/components/VoteColumn";
 import { PostBody } from "@/components/PostBody";
 import { CommentThread } from "@/components/CommentThread";
@@ -26,7 +27,8 @@ export default async function PostPage({ params }: PageProps) {
     notFound();
   }
 
-  const localImg = mediaSrc(post.local_image);
+  const manifestFile = await fileForPost(post.id, post.local_image);
+  const localImg = mediaSrc(post.local_image, manifestFile);
   const showRemoteImg =
     !localImg && !post.is_self && post.url && isImageUrl(post.url);
 

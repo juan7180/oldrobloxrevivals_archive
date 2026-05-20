@@ -1,11 +1,12 @@
 import type { Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { resolveMediaUrl } from "@/lib/media";
 
 const components: Components = {
   a: ({ href, children }) => (
     <a
-      href={href}
+      href={resolveMediaUrl(href) ?? href}
       target="_blank"
       rel="noopener noreferrer"
       className="text-reddit-blue hover:underline break-all"
@@ -71,7 +72,7 @@ const components: Components = {
   ),
   img: ({ src, alt }) => (
     <img
-      src={src}
+      src={resolveMediaUrl(typeof src === "string" ? src : undefined)}
       alt={alt ?? ""}
       className="max-w-full rounded my-2"
       loading="lazy"

@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""
-Download images referenced in the JSONL archive to media/.
-
-Run:  python3 scripts/download_media.py
-      python3 scripts/download_media.py --limit 50
-"""
+"""Download images referenced in the JSONL archive to media/."""
 
 from __future__ import annotations
 

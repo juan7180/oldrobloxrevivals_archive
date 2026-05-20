@@ -21,6 +21,7 @@ function defaultArchiveDir(): string {
 }
 
 export const env = {
+  repoRoot: getRepoRoot(),
   corsOrigins: parseOrigins(process.env.CORS_ORIGINS),
   archiveDir: process.env.ARCHIVE_DIR ?? defaultArchiveDir(),
   archivePath:

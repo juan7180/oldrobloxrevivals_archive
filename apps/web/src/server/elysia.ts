@@ -8,8 +8,14 @@ import {
   loadArchive,
   queryPosts,
 } from "./archive";
+import {
+  ensureMediaDownload,
+  getMediaDownloadStatus,
+} from "./media/startup";
 
-const archiveReady = loadArchive();
+const archiveReady = loadArchive().then(() => {
+  void ensureMediaDownload();
+});
 
 export const app = new Elysia({ prefix: "/api" })
   .use(
@@ -21,6 +27,7 @@ export const app = new Elysia({ prefix: "/api" })
     await archiveReady;
   })
   .get("/meta", () => getMeta())
+  .get("/media/status", () => getMediaDownloadStatus())
   .get("/flairs", () => getFlairs())
   .get(
     "/posts",
