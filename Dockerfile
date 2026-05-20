@@ -11,8 +11,10 @@ COPY packages/shared/package.json ./packages/shared/
 RUN apk add --no-cache libc6-compat \
   && bun install --frozen-lockfile
 
-FROM oven/bun:1.3-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
+
+RUN apk add --no-cache libc6-compat
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -23,7 +25,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
 ENV CORS_ORIGINS=${CORS_ORIGINS}
 
-RUN bun run build
+WORKDIR /app/apps/web
+RUN npm run build
 
 FROM node:22-alpine AS runner
 WORKDIR /app
@@ -41,7 +44,6 @@ RUN addgroup --system --gid 1001 nodejs \
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
-
 COPY --from=builder --chown=nextjs:nodejs /app/data/archive ./data/archive
 
 RUN mkdir -p /app/media && chown -R nextjs:nodejs /app/media
