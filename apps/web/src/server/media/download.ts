@@ -75,7 +75,7 @@ async function downloadFile(url: string, dest: string): Promise<boolean> {
 }
 
 export function shouldAutoDownload(): boolean {
-  if (process.env.MEDIA_AUTO_DOWNLOAD === "false") return false;
+  if (!env.mediaAutoDownload) return false;
   if (process.env.NEXT_PUBLIC_MEDIA_URL?.trim()) return false;
   if (existsSync(completeMarkerPath())) return false;
   return true;

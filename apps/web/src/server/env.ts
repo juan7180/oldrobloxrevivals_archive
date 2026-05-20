@@ -20,6 +20,14 @@ function defaultArchiveDir(): string {
   return getRepoRoot();
 }
 
+function parseBool(value: string | undefined, defaultValue: boolean): boolean {
+  if (value === undefined || value === "") return defaultValue;
+  const v = value.trim().toLowerCase();
+  if (v === "false" || v === "0" || v === "no" || v === "off") return false;
+  if (v === "true" || v === "1" || v === "yes" || v === "on") return true;
+  return defaultValue;
+}
+
 export const env = {
   repoRoot: getRepoRoot(),
   corsOrigins: parseOrigins(process.env.CORS_ORIGINS),
@@ -27,6 +35,7 @@ export const env = {
   archivePath:
     process.env.ARCHIVE_PATH ?? join(getRepoRoot(), "data/archive.json"),
   mediaRoot: process.env.MEDIA_ROOT ?? join(getRepoRoot(), "media"),
+  mediaAutoDownload: parseBool(process.env.MEDIA_AUTO_DOWNLOAD, true),
   appUrl:
     process.env.NEXT_PUBLIC_APP_URL ??
     (process.env.VERCEL_URL

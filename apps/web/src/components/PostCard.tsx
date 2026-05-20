@@ -1,9 +1,16 @@
 import Link from "next/link";
 import type { PostSummary } from "@redditviewer/shared";
-import { slugify } from "@/lib/utils";
+import { isRemovedContent, slugify } from "@/lib/utils";
+import { RemovedBanner } from "./RemovedBanner";
 import { VoteColumn } from "./VoteColumn";
 
-export function PostCard({ post }: { post: PostSummary }) {
+export function PostCard({
+  post,
+  subreddit = "oldrobloxrevivals",
+}: {
+  post: PostSummary;
+  subreddit?: string;
+}) {
   const slug = slugify(post.title || post.id);
   const href = `/comments/${post.id}/${slug}`;
 
@@ -20,9 +27,6 @@ export function PostCard({ post }: { post: PostSummary }) {
               {post.link_flair}
             </span>
           )}
-          {post.removed && (
-            <span className="text-red-600">[{post.removed}]</span>
-          )}
           <span>
             Posted by{" "}
             <span className="text-reddit-text">u/{post.author}</span>
@@ -34,11 +38,17 @@ export function PostCard({ post }: { post: PostSummary }) {
             {post.title}
           </Link>
         </h2>
-        {post.selftext && (
-          <p className="text-sm text-reddit-muted mt-1 line-clamp-2">
-            {post.selftext.slice(0, 200)}
-            {post.selftext.length > 200 ? "…" : ""}
-          </p>
+        {isRemovedContent(post.selftext) ? (
+          <div className="mt-2">
+            <RemovedBanner subreddit={subreddit} />
+          </div>
+        ) : (
+          post.selftext && (
+            <p className="text-sm text-reddit-muted mt-1 line-clamp-2">
+              {post.selftext.slice(0, 200)}
+              {post.selftext.length > 200 ? "…" : ""}
+            </p>
+          )
         )}
         <div className="flex gap-3 mt-2 text-xs font-bold text-reddit-muted">
           <Link

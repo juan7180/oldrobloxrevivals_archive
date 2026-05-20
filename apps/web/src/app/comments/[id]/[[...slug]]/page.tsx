@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { fetchMeta, fetchPost } from "@/lib/api";
-import { isImageUrl, mediaSrc } from "@/lib/utils";
+import { isImageUrl, isRemovedContent, mediaSrc } from "@/lib/utils";
+import { RemovedBanner } from "@/components/RemovedBanner";
 import { fileForPost } from "@/server/media/manifest";
 import { VoteColumn } from "@/components/VoteColumn";
 import { PostBody } from "@/components/PostBody";
@@ -60,29 +61,32 @@ export default async function PostPage({ params }: PageProps) {
                       {post.link_flair}
                     </span>
                   )}
-                  {post.removed && (
-                    <span className="text-red-600">[{post.removed}]</span>
-                  )}
                 </div>
 
                 <h1 className="text-2xl font-medium leading-tight mb-3">
                   {post.title}
                 </h1>
 
-                {post.selftext && (
+                {isRemovedContent(post.selftext) ? (
                   <div className="mb-4">
-                    <PostBody text={post.selftext} />
+                    <RemovedBanner subreddit={meta.subreddit} />
                   </div>
+                ) : (
+                  post.selftext && (
+                    <div className="mb-4">
+                      <PostBody text={post.selftext} />
+                    </div>
+                  )
                 )}
 
-                {localImg && (
+                {!isRemovedContent(post.selftext) && localImg && (
                   <img
                     src={localImg}
                     alt=""
                     className="max-w-full rounded-md mb-4"
                   />
                 )}
-                {showRemoteImg && (
+                {!isRemovedContent(post.selftext) && showRemoteImg && (
                   <img
                     src={post.url}
                     alt=""
@@ -107,7 +111,7 @@ export default async function PostPage({ params }: PageProps) {
             </div>
           </div>
 
-          <CommentThread comments={post.comments} />
+          <CommentThread comments={post.comments} subreddit={meta.subreddit} />
         </article>
 
         <div className="hidden lg:block">

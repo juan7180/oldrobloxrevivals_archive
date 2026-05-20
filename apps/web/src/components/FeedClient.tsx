@@ -20,8 +20,10 @@ function LoadingSpinner() {
 
 export function FeedClient({
   initial,
+  subreddit = "oldrobloxrevivals",
 }: {
   initial: PostsListResponse;
+  subreddit?: string;
 }) {
   const searchParams = useSearchParams();
   const sort = (searchParams.get("sort") as SortOption) || "new";
@@ -135,7 +137,9 @@ export function FeedClient({
           {emptyMessage}
         </div>
       ) : (
-        posts.map((post) => <PostCard key={post.id} post={post} />)
+        posts.map((post) => (
+          <PostCard key={post.id} post={post} subreddit={subreddit} />
+        ))
       )}
 
       {loading && <LoadingSpinner />}

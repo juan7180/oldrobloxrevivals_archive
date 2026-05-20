@@ -41,4 +41,10 @@ export function isImageUrl(url: string): boolean {
   return /\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(url || "");
 }
 
+export function isRemovedContent(text: string | null | undefined): boolean {
+  if (!text?.trim()) return false;
+  const t = text.trim().toLowerCase();
+  return t === "[removed]" || t === "[deleted]";
+}
+
 export { mediaSrc, resolveMediaUrl } from "./media";

@@ -2,7 +2,8 @@
 
 import type { Comment } from "@redditviewer/shared";
 import { useMemo, useState } from "react";
-import { highlightText } from "@/lib/utils";
+import { highlightText, isRemovedContent } from "@/lib/utils";
+import { RemovedBanner } from "./RemovedBanner";
 import { MarkdownBody } from "./MarkdownBody";
 import { UserAvatar } from "./UserAvatar";
 import { CommentActionBar } from "./CommentVoteBar";
@@ -33,11 +34,13 @@ function CommentNode({
   depth,
   query,
   isLast,
+  subreddit,
 }: {
   comment: Comment;
   depth: number;
   query: string;
   isLast?: boolean;
+  subreddit: string;
 }) {
   const q = query.trim().toLowerCase();
   const show = !q || subtreeMatches(comment, q);
@@ -94,7 +97,9 @@ function CommentNode({
           </div>
 
           <div className="text-sm text-reddit-text">
-            {showHighlight ? (
+            {isRemovedContent(comment.body) ? (
+              <RemovedBanner subreddit={subreddit} kind="comment" />
+            ) : showHighlight ? (
               <div
                 className="whitespace-pre-wrap break-words markdown-body"
                 dangerouslySetInnerHTML={{
@@ -119,6 +124,7 @@ function CommentNode({
               depth={depth + 1}
               query={query}
               isLast={i === comment.replies.length - 1}
+              subreddit={subreddit}
             />
           ))}
         </div>
@@ -127,7 +133,13 @@ function CommentNode({
   );
 }
 
-export function CommentThread({ comments }: { comments: Comment[] }) {
+export function CommentThread({
+  comments,
+  subreddit = "oldrobloxrevivals",
+}: {
+  comments: Comment[];
+  subreddit?: string;
+}) {
   const [query, setQuery] = useState("");
 
   const total = useMemo(() => flattenComments(comments).length, [comments]);
@@ -166,6 +178,7 @@ export function CommentThread({ comments }: { comments: Comment[] }) {
               depth={0}
               query={query}
               isLast={i === comments.length - 1}
+              subreddit={subreddit}
             />
           ))}
         </div>

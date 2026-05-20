@@ -50,7 +50,11 @@ export default async function HomePage({ searchParams }: PageProps) {
               <SearchScopeToggle />
             </Suspense>
             <Suspense fallback={<div className="h-32 bg-reddit-card rounded animate-pulse" />}>
-              <FeedClient key={feedKey} initial={posts} />
+              <FeedClient
+                key={feedKey}
+                initial={posts}
+                subreddit={meta.subreddit}
+              />
             </Suspense>
           </div>
           <aside className="hidden lg:block">
