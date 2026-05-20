@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 @theme {
+  --font-sans: var(--font-reddit-sans), ui-sans-serif, system-ui, sans-serif;
   --color-reddit-orange: #ff4500;
   --color-reddit-blue: #0079d3;
   --color-reddit-bg: #0b1416;
@@ -16,6 +17,7 @@
 }
 
 body {
+  font-family: var(--font-sans);
   background: var(--color-reddit-bg);
   color: var(--color-reddit-text);
 }
