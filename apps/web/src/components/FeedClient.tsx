@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import type {
   PostSummary,
@@ -6,9 +6,11 @@ import type {
   SortOption,
   SearchScope,
 } from "@redditviewer/shared";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { VirtualizedPost } from "./VirtualizedPost";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { PostCard } from "./PostCard";
 
 function LoadingSpinner() {
   return (
@@ -30,126 +32,106 @@ export function FeedClient({
   const q = searchParams.get("q") ?? "";
   const scope = (searchParams.get("scope") as SearchScope) || "posts";
   const flair = searchParams.get("flair") ?? "";
-
-  const [posts, setPosts] = useState<PostSummary[]>(initial.posts);
-  const [total, setTotal] = useState(initial.total);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const pageRef = useRef(initial.page);
-  const postsRef = useRef(posts);
-  const totalRef = useRef(total);
-  const loadingRef = useRef(false);
-  const sentinelRef = useRef<HTMLDivElement>(null);
-
-  postsRef.current = posts;
-  totalRef.current = total;
-
   const filterKey = `${sort}|${q}|${scope}|${flair}`;
+  const limit = 25;
 
-  const hasMore = posts.length < total;
-
-  const loadMore = useCallback(async () => {
-    if (loadingRef.current || postsRef.current.length >= totalRef.current) {
-      return;
-    }
-
-    loadingRef.current = true;
-    setLoading(true);
-    setError(null);
-
-    const nextPage = pageRef.current + 1;
-
-    try {
+  const {
+    data,
+    fetchNextPage,
+    isFetchingNextPage,
+    isError,
+    error,
+    isLoading,
+    hasNextPage,
+  } = useInfiniteQuery({
+    queryKey: ["posts", sort, q, scope, flair],
+    queryFn: async ({ pageParam = 1 }) => {
       const sp = new URLSearchParams();
-      sp.set("page", String(nextPage));
-      sp.set("limit", "25");
+      sp.set("page", String(pageParam));
+      sp.set("limit", String(limit));
       sp.set("sort", sort);
       if (q) sp.set("q", q);
       if (scope) sp.set("scope", scope);
       if (flair) sp.set("flair", flair);
-
       const res = await fetch(`/api/posts?${sp}`, { cache: "no-store" });
-      if (!res.ok) {
-        throw new Error(`Failed to load posts (${res.status})`);
-      }
+      if (!res.ok) throw new Error(`Failed to load posts (${res.status})`);
+      return (await res.json()) as PostsListResponse;
+    },
+    getNextPageParam: (last: PostsListResponse) =>
+      last.page < Math.ceil(last.total / limit) ? last.page + 1 : undefined,
+    initialData: ({ pages: [initial], pageParams: [initial.page ?? 1] } as any),
+  } as any);
+  const pages = (data as any)?.pages as PostsListResponse[] | undefined;
+  const items = pages ? pages.flatMap((p) => p.posts) : initial.posts;
+  const total = pages?.[0]?.total ?? initial.total;
+  const hasMore = items.length < total;
 
-      const data: PostsListResponse = await res.json();
-      if (!Array.isArray(data.posts)) {
-        throw new Error("Invalid response from server");
-      }
+  const parentRef = useRef<HTMLDivElement | null>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => (typeof document !== "undefined" ? document.scrollingElement : null),
+    estimateSize: () => 120,
+    overscan: 5,
+  });
+  const virtualItems = rowVirtualizer.getVirtualItems();
 
-      pageRef.current = data.page;
-      totalRef.current = data.total;
-      setTotal(data.total);
-      setPosts((prev) => {
-        const ids = new Set(prev.map((p) => p.id));
-        const next = data.posts.filter((p) => !ids.has(p.id));
-        if (next.length === 0 && data.posts.length > 0) {
-          setError("Received duplicate posts; try again.");
-        }
-        return [...prev, ...next];
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load more posts");
-    } finally {
-      loadingRef.current = false;
-      setLoading(false);
-    }
-  }, [sort, q, scope, flair]);
-
-  const loadMoreRef = useRef(loadMore);
-  loadMoreRef.current = loadMore;
-
+  // autofetch next page when scrolling near the end
   useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el || !hasMore) return;
+    if (!virtualItems.length) return;
+    const last = virtualItems[virtualItems.length - 1];
+    if (last.index >= items.length - 3 && hasNextPage && !isFetchingNextPage) {
+      void fetchNextPage();
+    }
+  }, [virtualItems, items.length, fetchNextPage, hasNextPage, isFetchingNextPage]);
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) {
-          void loadMoreRef.current();
-        }
-      },
-      { rootMargin: "400px" },
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [hasMore, filterKey]);
-
-  const emptyMessage =
-    q || flair
-      ? "No posts match your filters."
-      : "No posts in archive.";
+  const emptyMessage = q || flair ? "No posts match your filters." : "No posts in archive.";
 
   return (
     <div className="space-y-2">
       {(q || flair) && (
         <p className="text-sm text-reddit-muted px-1">
           {total.toLocaleString()} result{total === 1 ? "" : "s"}
-          {total !== posts.length ? ` · showing ${posts.length}` : ""}
+          {total !== items.length ? ` · showing ${items.length}` : ""}
         </p>
       )}
 
-      {posts.length === 0 && !loading ? (
+      {items.length === 0 && !isLoading ? (
         <div className="bg-reddit-card border border-reddit-border rounded-md p-8 text-center text-reddit-muted">
           {emptyMessage}
         </div>
       ) : (
-        posts.map((post) => (
-          <VirtualizedPost key={post.id} post={post} subreddit={subreddit} />
-        ))
+        <div ref={parentRef} className="relative">
+          <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative" }}>
+            {virtualItems.map((virtualRow: any) => {
+              const post = items[virtualRow.index];
+              return (
+                <div
+                  key={post?.id ?? virtualRow.index}
+                  data-index={virtualRow.index}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
+                  {post ? <PostCard post={post} subreddit={subreddit} /> : null}
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
 
-      {loading && <LoadingSpinner />}
+      {(isLoading || isFetchingNextPage) && <LoadingSpinner />}
 
-      {error && (
+      {isError && (
         <div className="text-center py-4 space-y-2">
-          <p className="text-sm text-reddit-orange">{error}</p>
+          <p className="text-sm text-reddit-orange">{error?.message ?? "Failed to load posts"}</p>
           <button
             type="button"
-            onClick={() => void loadMore()}
+            onClick={() => void fetchNextPage()}
             className="text-sm text-reddit-blue hover:underline"
           >
             Try again
@@ -157,7 +139,7 @@ export function FeedClient({
         </div>
       )}
 
-      {hasMore && <div ref={sentinelRef} className="h-4" aria-hidden />}
+      {hasMore && <div className="h-4" aria-hidden />}
     </div>
   );
 }

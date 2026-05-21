@@ -1,7 +1,7 @@
 {
   "name": "@redditviewer/web",
   "version": "0.0.1",
-  "private": true,
+  "private": false,
   "scripts": {
     "dev": "next dev",
     "dev:clean": "rm -rf .next && next dev",
@@ -11,6 +11,9 @@
   "dependencies": {
     "@elysiajs/cors": "^1.2.0",
     "@redditviewer/shared": "workspace:*",
+    "@tanstack/react-query": "^5.100.11",
+    "@tanstack/react-query-devtools": "^5.100.11",
+    "@tanstack/react-virtual": "^3.13.25",
     "elysia": "^1.2.25",
     "next": "^15.3.2",
     "react": "^19.1.0",

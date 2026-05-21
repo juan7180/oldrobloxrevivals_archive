@@ -1,4 +1,6 @@
 import { Suspense } from "react";
+import { QueryClient, dehydrate } from "@tanstack/react-query";
+import QueryProviderClient from "@/components/QueryProviderClient";
 import { fetchMeta, fetchPosts, fetchFlairs } from "@/lib/api";
 import type { FlairInfo, SortOption, SearchScope } from "@redditviewer/shared";
 import { FeedClient } from "@/components/FeedClient";
@@ -26,13 +28,18 @@ export default async function HomePage({ searchParams }: PageProps) {
   const flair = params.flair ?? "";
   const page = params.page ? Number(params.page) : 1;
   const feedKey = `${sort}|${q}|${scope}|${flair}`;
+  const qc = new QueryClient();
+  // fetch first page and seed it into the query client so the client can hydrate
+  const firstPage = await fetchPosts({ page, limit: 25, sort, q, scope, flair });
+  qc.setQueryData(["posts", sort, q, scope, flair], { pages: [firstPage], pageParams: [1] });
 
-  const [meta, posts, flairsResult] = await Promise.all([
+  const [meta, flairsResult] = await Promise.all([
     fetchMeta(),
-    fetchPosts({ page, limit: 25, sort, q, scope, flair }),
     fetchFlairs().catch(() => [] as FlairInfo[]),
   ]);
   const flairs = flairsResult;
+  const dehydrated = dehydrate(qc);
+  const initial = qc.getQueryData<any>(["posts", sort, q, scope, flair])?.pages?.[0] ?? firstPage;
 
   return (
     <>
@@ -50,11 +57,9 @@ export default async function HomePage({ searchParams }: PageProps) {
               <SearchScopeToggle />
             </Suspense>
             <Suspense fallback={<div className="h-32 bg-reddit-card rounded animate-pulse" />}>
-              <FeedClient
-                key={feedKey}
-                initial={posts}
-                subreddit={meta.subreddit}
-              />
+              <QueryProviderClient dehydratedState={dehydrated}>
+                <FeedClient key={feedKey} initial={initial} subreddit={meta.subreddit} />
+              </QueryProviderClient>
             </Suspense>
           </div>
           <aside className="hidden lg:block">
