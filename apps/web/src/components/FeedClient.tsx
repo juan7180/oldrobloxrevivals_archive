@@ -1,16 +1,22 @@
-'use client';
+"use client";
 
 import type {
-  PostSummary,
   PostsListResponse,
   SortOption,
   SearchScope,
 } from "@redditviewer/shared";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  type InfiniteData,
+} from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { PostCard } from "./PostCard";
+
+const PAGE_SIZE = 25;
+const POST_GAP = 8;
+const ESTIMATED_ROW_HEIGHT = 200;
 
 function LoadingSpinner() {
   return (
@@ -32,8 +38,6 @@ export function FeedClient({
   const q = searchParams.get("q") ?? "";
   const scope = (searchParams.get("scope") as SearchScope) || "posts";
   const flair = searchParams.get("flair") ?? "";
-  const filterKey = `${sort}|${q}|${scope}|${flair}`;
-  const limit = 25;
 
   const {
     data,
@@ -45,10 +49,10 @@ export function FeedClient({
     hasNextPage,
   } = useInfiniteQuery({
     queryKey: ["posts", sort, q, scope, flair],
-    queryFn: async ({ pageParam = 1 }) => {
+    queryFn: async ({ pageParam }) => {
       const sp = new URLSearchParams();
       sp.set("page", String(pageParam));
-      sp.set("limit", String(limit));
+      sp.set("limit", String(PAGE_SIZE));
       sp.set("sort", sort);
       if (q) sp.set("q", q);
       if (scope) sp.set("scope", scope);
@@ -57,34 +61,69 @@ export function FeedClient({
       if (!res.ok) throw new Error(`Failed to load posts (${res.status})`);
       return (await res.json()) as PostsListResponse;
     },
-    getNextPageParam: (last: PostsListResponse) =>
-      last.page < Math.ceil(last.total / limit) ? last.page + 1 : undefined,
-    initialData: ({ pages: [initial], pageParams: [initial.page ?? 1] } as any),
-  } as any);
-  const pages = (data as any)?.pages as PostsListResponse[] | undefined;
-  const items = pages ? pages.flatMap((p) => p.posts) : initial.posts;
-  const total = pages?.[0]?.total ?? initial.total;
-  const hasMore = items.length < total;
+    initialPageParam: 1,
+    getNextPageParam: (last) =>
+      last.page < Math.ceil(last.total / PAGE_SIZE) ? last.page + 1 : undefined,
+    maxPages: 5,
+    refetchOnWindowFocus: false,
+  });
 
-  const parentRef = useRef<HTMLDivElement | null>(null);
+  const pages =
+    (data as InfiniteData<PostsListResponse> | undefined)?.pages ??
+    [initial];
+  const items = pages.flatMap((p) => p.posts);
+  const total = pages[0]?.total ?? initial.total;
+  const hasMore = hasNextPage ?? items.length < total;
+
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const loadingMoreRef = useRef(false);
+
   const rowVirtualizer = useVirtualizer({
     count: items.length,
-    getScrollElement: () => (typeof document !== "undefined" ? document.scrollingElement : null),
-    estimateSize: () => 120,
-    overscan: 5,
+    getScrollElement: () =>
+      typeof document !== "undefined" ? document.documentElement : null,
+    estimateSize: () => ESTIMATED_ROW_HEIGHT,
+    overscan: 3,
+    gap: POST_GAP,
+    measureElement: (el) => el.getBoundingClientRect().height,
   });
+
   const virtualItems = rowVirtualizer.getVirtualItems();
 
-  // autofetch next page when scrolling near the end
-  useEffect(() => {
-    if (!virtualItems.length) return;
-    const last = virtualItems[virtualItems.length - 1];
-    if (last.index >= items.length - 3 && hasNextPage && !isFetchingNextPage) {
-      void fetchNextPage();
+  const loadMore = useCallback(() => {
+    if (
+      loadingMoreRef.current ||
+      !hasNextPage ||
+      isFetchingNextPage
+    ) {
+      return;
     }
-  }, [virtualItems, items.length, fetchNextPage, hasNextPage, isFetchingNextPage]);
+    loadingMoreRef.current = true;
+    void fetchNextPage().finally(() => {
+      loadingMoreRef.current = false;
+    });
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
-  const emptyMessage = q || flair ? "No posts match your filters." : "No posts in archive.";
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || !hasMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          loadMore();
+        }
+      },
+      { rootMargin: "400px" },
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMore, loadMore]);
+
+  const emptyMessage =
+    q || flair ? "No posts match your filters." : "No posts in archive.";
 
   return (
     <div className="space-y-2">
@@ -100,13 +139,21 @@ export function FeedClient({
           {emptyMessage}
         </div>
       ) : (
-        <div ref={parentRef} className="relative">
-          <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative" }}>
-            {virtualItems.map((virtualRow: any) => {
+        <div ref={listRef} className="relative w-full">
+          <div
+            style={{
+              height: rowVirtualizer.getTotalSize(),
+              position: "relative",
+              width: "100%",
+            }}
+          >
+            {virtualItems.map((virtualRow) => {
               const post = items[virtualRow.index];
+              if (!post) return null;
               return (
                 <div
-                  key={post?.id ?? virtualRow.index}
+                  key={post.id}
+                  ref={rowVirtualizer.measureElement}
                   data-index={virtualRow.index}
                   style={{
                     position: "absolute",
@@ -116,7 +163,7 @@ export function FeedClient({
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
                 >
-                  {post ? <PostCard post={post} subreddit={subreddit} /> : null}
+                  <PostCard post={post} subreddit={subreddit} />
                 </div>
               );
             })}
@@ -128,7 +175,9 @@ export function FeedClient({
 
       {isError && (
         <div className="text-center py-4 space-y-2">
-          <p className="text-sm text-reddit-orange">{error?.message ?? "Failed to load posts"}</p>
+          <p className="text-sm text-reddit-orange">
+            {error?.message ?? "Failed to load posts"}
+          </p>
           <button
             type="button"
             onClick={() => void fetchNextPage()}
@@ -139,7 +188,9 @@ export function FeedClient({
         </div>
       )}
 
-      {hasMore && <div className="h-4" aria-hidden />}
+      {hasMore && (
+        <div ref={sentinelRef} className="h-4 shrink-0" aria-hidden />
+      )}
     </div>
   );
 }

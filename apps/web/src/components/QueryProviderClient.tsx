@@ -1,6 +1,11 @@
 'use client';
 import React, { useState } from "react";
-import { QueryClient, QueryClientProvider, hydrate } from "@tanstack/react-query";
+import {
+  QueryClient,
+  QueryClientProvider,
+  HydrationBoundary,
+  type DehydratedState,
+} from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 
 export default function QueryProviderClient({
@@ -8,7 +13,7 @@ export default function QueryProviderClient({
   dehydratedState,
 }: {
   children: React.ReactNode;
-  dehydratedState?: unknown;
+  dehydratedState?: DehydratedState;
 }) {
   const [queryClient] = useState(
     () =>
@@ -18,21 +23,12 @@ export default function QueryProviderClient({
         },
       }),
   );
-  if (dehydratedState) {
-    // apply server-side dehydrated cache to the client query store
-    try {
-      // hydrate mutates the queryClient in place
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      hydrate(queryClient as any, dehydratedState as any);
-    } catch {
-      // ignore hydrate errors during client render
-    }
-  }
-
   return (
     <QueryClientProvider client={queryClient}>
-      {children}
-      {process.env.NODE_ENV === "development" ? <ReactQueryDevtools initialIsOpen={false} /> : null}
+      <HydrationBoundary state={dehydratedState}>{children}</HydrationBoundary>
+      {process.env.NODE_ENV === "development" ? (
+        <ReactQueryDevtools initialIsOpen={false} />
+      ) : null}
     </QueryClientProvider>
   );
 }
