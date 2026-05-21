@@ -8,7 +8,7 @@ import type {
 } from "@redditviewer/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { PostCard } from "./PostCard";
+import { VirtualizedPost } from "./VirtualizedPost";
 
 function LoadingSpinner() {
   return (
@@ -138,7 +138,7 @@ export function FeedClient({
         </div>
       ) : (
         posts.map((post) => (
-          <PostCard key={post.id} post={post} subreddit={subreddit} />
+          <VirtualizedPost key={post.id} post={post} subreddit={subreddit} />
         ))
       )}
 
