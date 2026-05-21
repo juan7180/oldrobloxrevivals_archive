@@ -8,6 +8,7 @@ import { VoteColumn } from "@/components/VoteColumn";
 import { PostBody } from "@/components/PostBody";
 import { CommentThread } from "@/components/CommentThread";
 import { SubredditSidebar } from "@/components/SubredditSidebar";
+import { NsfwWarningModal } from "@/components/NsfwWarningModal";
 
 interface PageProps {
   params: Promise<{ id: string; slug?: string[] }>;
@@ -34,9 +35,11 @@ export default async function PostPage({ params }: PageProps) {
     !localImg && !post.is_self && post.url && isImageUrl(post.url);
 
   return (
-    <main className="max-w-6xl mx-auto px-4 py-4">
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_312px] gap-4">
-        <article className="min-w-0">
+    <>
+      <NsfwWarningModal postId={post.id} />
+      <main className="max-w-6xl mx-auto px-4 py-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_312px] gap-4">
+          <article className="min-w-0">
           <div className="bg-reddit-card border border-reddit-border rounded-md overflow-hidden">
             <div className="flex">
               <VoteColumn score={post.score} />
@@ -114,11 +117,12 @@ export default async function PostPage({ params }: PageProps) {
           <CommentThread comments={post.comments} subreddit={meta.subreddit} />
         </article>
 
-        <div className="hidden lg:block">
-          <SubredditSidebar meta={meta} />
+          <div className="hidden lg:block">
+            <SubredditSidebar meta={meta} />
+          </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </>
   );
 }
 
