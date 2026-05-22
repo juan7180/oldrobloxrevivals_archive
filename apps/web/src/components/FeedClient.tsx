@@ -5,7 +5,7 @@ import type {
   SortOption,
   SearchScope,
 } from "@redditviewer/shared";
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   useInfiniteQuery,
@@ -24,6 +24,13 @@ function LoadingSpinner() {
       <div className="w-8 h-8 border-2 border-reddit-border border-t-reddit-orange rounded-full animate-spin" />
     </div>
   );
+}
+
+function getNextPage(last: PostsListResponse): number | undefined {
+  const maxPage = Math.max(1, Math.ceil(last.total / PAGE_SIZE));
+  if (last.page >= maxPage) return undefined;
+  if (last.posts.length === 0) return undefined;
+  return last.page + 1;
 }
 
 export function FeedClient({
@@ -62,22 +69,24 @@ export function FeedClient({
       return (await res.json()) as PostsListResponse;
     },
     initialPageParam: 1,
-    getNextPageParam: (last) =>
-      last.page < Math.ceil(last.total / PAGE_SIZE) ? last.page + 1 : undefined,
-    maxPages: 5,
+    getNextPageParam: getNextPage,
     refetchOnWindowFocus: false,
   });
 
   const pages =
-    (data as InfiniteData<PostsListResponse> | undefined)?.pages ??
-    [initial];
+    (data as InfiniteData<PostsListResponse> | undefined)?.pages ?? [initial];
   const items = pages.flatMap((p) => p.posts);
   const total = pages[0]?.total ?? initial.total;
-  const hasMore = hasNextPage ?? items.length < total;
+  const hasMore = Boolean(hasNextPage);
 
   const listRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const loadingMoreRef = useRef(false);
+  const fetchNextPageRef = useRef(fetchNextPage);
+  const hasNextPageRef = useRef(hasNextPage);
+
+  fetchNextPageRef.current = fetchNextPage;
+  hasNextPageRef.current = hasNextPage;
 
   const rowVirtualizer = useVirtualizer({
     count: items.length,
@@ -91,36 +100,26 @@ export function FeedClient({
 
   const virtualItems = rowVirtualizer.getVirtualItems();
 
-  const loadMore = useCallback(() => {
-    if (
-      loadingMoreRef.current ||
-      !hasNextPage ||
-      isFetchingNextPage
-    ) {
-      return;
-    }
-    loadingMoreRef.current = true;
-    void fetchNextPage().finally(() => {
-      loadingMoreRef.current = false;
-    });
-  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
-
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el || !hasMore) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0]?.isIntersecting) {
-          loadMore();
-        }
+        if (!entries[0]?.isIntersecting) return;
+        if (loadingMoreRef.current || !hasNextPageRef.current) return;
+
+        loadingMoreRef.current = true;
+        void fetchNextPageRef.current().finally(() => {
+          loadingMoreRef.current = false;
+        });
       },
-      { rootMargin: "400px" },
+      { rootMargin: "200px" },
     );
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, [hasMore, loadMore]);
+  }, [hasMore]);
 
   const emptyMessage =
     q || flair ? "No posts match your filters." : "No posts in archive.";
@@ -162,6 +161,7 @@ export function FeedClient({
                     width: "100%",
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
+                  className="pb-2"
                 >
                   <PostCard post={post} subreddit={subreddit} />
                 </div>
@@ -188,9 +188,7 @@ export function FeedClient({
         </div>
       )}
 
-      {hasMore && (
-        <div ref={sentinelRef} className="h-4 shrink-0" aria-hidden />
-      )}
+      {hasMore && <div ref={sentinelRef} className="h-4 shrink-0" aria-hidden />}
     </div>
   );
 }
