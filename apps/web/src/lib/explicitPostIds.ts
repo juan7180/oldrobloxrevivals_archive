@@ -2,6 +2,7 @@
 /** added in petition of meditext **/
 export const EXPLICIT_POST_IDS: Record<string, true> = {
   "16ptb4j": true,
+  "18vdwky": true,
 };
 
 export function isExplicitPost(id: string): boolean {
