@@ -1,6 +1,6 @@
 {
   "name": "@redditviewer/api",
-  "version": "0.0.1",
+  "version": "9.0.1",
   "private": true,
   "scripts": {
     "dev": "bun run --watch src/index.ts",
